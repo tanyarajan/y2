@@ -212,10 +212,17 @@ gmm_se <- function(omega, data, model, Tmax){
 
 }
 
+
+# SE Estimates
 se1 <- gmm_se(results1$par, df, 1, 15)
 se2 <- gmm_se(results2$par, df, 2, 15)
 
-             
+
+#####################################################
+#                 Output to Latex                   #
+#####################################################
+
+# Format standard errors
 fmtse1 <- c(0,0,0,0)
 for (j in 1:length(se1)){
   fmtse1[j] <- as.character(paste0("(",round(se1[j], 4),")"))
@@ -227,11 +234,14 @@ for (j in 1:length(se2)){
   fmtse2[j] <- as.character(paste0("(",round(se2[j], 4),")"))
 }
 
+# Table to output
 outtable <- rbind(round(coef1, 4), fmtse1, round(coef2,4), fmtse2)
 rownames(outtable) <- c("HIP Model", "  ", "HIP + RW Model", " ")
 #outtable <- cbind(names, outtable)
 colnames(outtable)<-c( "$\\sigma_\\beta$","$\\sigma_\\xi$","$\\theta$","$\\sigma_\\varepsilon$", "$\\sigma_u$")
 
+
+# Write to Latex
 kable(outtable, format="latex", booktabs=TRUE, escape=FALSE) %>%
   write(file="tables/tr_table2.tex")
 
