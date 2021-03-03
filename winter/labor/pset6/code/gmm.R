@@ -32,10 +32,6 @@ extract_data <- function(datain){
               y_lead1=y_lead1, y_lead2=y_lead2, yforward=yforward))
 }
 
-df2 <- copy(df)
-test = as.matrix(df2[, c("caseid", "T", "y", "ly1", "ly2", "fy1", "fy2"):= NULL])
-
-list[a,b,c,d,e,f] <- extract_data(df)
 
 #####################################################
 #                 Moment Conditions                 #
@@ -149,9 +145,6 @@ gmm_stack <- function(omega, data, Tmax){
   return(mstack)
 }
 
-gmm_stack(c(1,2,3,4,5), df, 15)
-
-
 
 #-----------------------------------
 #      Parameter Estimates 
@@ -168,14 +161,15 @@ gmm_objective <- function(omega, data, model, Tmax){
 }
 
 # optimization
-omega_guess = c(1, 0, 1, 1, 1) # obviously change to make this better
+omega_guess = c(1, 0, 1, 1, 1) 
 results1 <-optim(omega_guess, gmm_objective, data=df, Tmax=15, model=1, method="L-BFGS-B", lower = c(0,0,-1,0,0), hessian = TRUE)
 results2 <-optim(omega_guess, gmm_objective, data=df, Tmax=15, model=2, method="L-BFGS-B", lower = c(0,0,-1,0,0), hessian = TRUE)
-
 
 # displaying coefficients
 coef1 <- results1$par
 coef2 <- results2$par
+
+
 
 #-----------------------------------
 #        Standard Errors
@@ -212,7 +206,6 @@ gmm_se <- function(omega, data, model, Tmax){
 
 }
 
-
 # SE Estimates
 se1 <- gmm_se(results1$par, df, 1, 15)
 se2 <- gmm_se(results2$par, df, 2, 15)
@@ -222,7 +215,7 @@ se2 <- gmm_se(results2$par, df, 2, 15)
 #                 Output to Latex                   #
 #####################################################
 
-# Format standard errors
+# Format standard errors to have parentheses
 fmtse1 <- c(0,0,0,0)
 for (j in 1:length(se1)){
   fmtse1[j] <- as.character(paste0("(",round(se1[j], 4),")"))
