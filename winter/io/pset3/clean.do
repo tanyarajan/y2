@@ -26,65 +26,34 @@ rename estdatemin est_min
 rename estdatemax est_max 
 rename exalusivelyus usonly
 
-// general cleaning
-egen nbidders = count(bidder), by(lot house date)
-egen totprofit = total(profit), by(lot house date)
+
+// ring wins 
 egen highbid = max(bid), by(lot house date)
 egen medbid = median(bid), by(lot house date)
+egen mnbid = mean(bid), by(lot house date)
 gen ringwin = (target_price <= highbid)
+
+// unqiue lots
 egen uniquelots = tag(lot date house)
 replace uniquelots = . if uniquelots == .
-gen sidepay = (netpayment > 0)
-gen payside = (netpayment < 0)
 egen auction = group(lot date house)
 
 
-// by house
-egen h_target = mean(target_price) if uniquelots == 1, by(house)
-egen h_target_sd = sd(target_price) if uniquelots == 1, by(house)
-egen h_knock = mean(highbid) if uniquelots == 1, by(house)
-egen h_knock_sd = sd(highbid) if uniquelots == 1, by(house)
-egen h_percwin = mean(ringwin) if uniquelots == 1, by(house)
-replace h_percwin = h_percwin*100
-gen h_value = (est_min + est_max)/2 
-egen h_totvalue = total(h_value) if uniquelots == 1, by(house) missing
-egen h_ringvalue = total(h_value) if uniquelots == 1 &  ringwin == 1, by(house) missing
-gen h_percvalue = h_ringvalue/h_totval * 100
-egen h_totlots = total(uniquelots), by(house) missing
+// value and profit
+gen value = (est_min + est_max)/2  if uniquelots == 1
+gen ringvalue = value if ringwin == 1 & uniquelots == 1
+egen totprofit = total(profit), by(lot house date)
 
+// number of bdiders and wins by bidder
+egen nbidders = count(bidder), by(lot house date)
+gen bidder_win = (rank == 1)
+gen bidder_win2 = (rank == 1 & nbidders >= 2)
+gen auction2 = auction if nbidders >=2
 
-// by number of bidders
-*egen uniquelots = tag(lot date house)
-egen b_target = mean(target_price) if uniquelots == 1, by(nbidders)
-egen b_target_sd = sd(target_price) if uniquelots == 1, by(nbidders)
-egen b_knock = mean(medbid) if uniquelots == 1, by(nbidders)
-egen b_knock_sd = sd(highbid) if uniquelots == 1, by(nbidders)
-egen b_percwin = mean(ringwin) if uniquelots == 1, by(nbidders)
-replace b_percwin = b_percwin*100
-egen b_totlots = total(uniquelots), by(nbidders) missing
+// side payments
+gen sidepay = (netpayment > 0) if nbidders >= 2
+gen payside = (netpayment < 0) if nbidders >= 2
 
-
-// by ring member
-gen m_wins = (rank == 1)
-egen m_percwins = mean(m_wins), by(bidder)
-replace m_percwins = m_percwins*100 
-egen m_totlots = total(uniquelots), by(bidder) missing
-
-
-// by ring member if auction has more than 2 bidders
-gen m2_wins = (rank == 1 & nbidders >= 2)
-egen m2_percwins = mean(m2_wins), by(bidder)
-replace m2_percwins = m2_percwins*100 
-egen m2_totlots = total(uniquelots) if nbidders >=2, by(bidder) missing
-egen m2_side = mean(sidepay) if nbidders >=2, by(bidder)
-replace m2_side = m2_side*100
-egen m2_pay = mean(payside) if nbidders >=2, by(bidder)
-replace m2_pay = m2_pay*100
-
-
-foreach var of varlist h_* b_* m_* m2_*{
-	replace `var' = . if uniquelots == .
-}
 
 // all manipulations
 save data/allvars, replace
@@ -94,7 +63,6 @@ save data/allvars, replace
 
 // Data on knockout bids
 preserve
-drop b_* h_* m2_* 
 keep if nbidders == 2
 
 tab bidder, gen(rm_)
@@ -108,7 +76,6 @@ restore
 
 // Create data on target prices and append to knockout bid data
 preserve
-drop b_* h_* m2_* 
 keep if nbidders == 2
 
 drop if uniquelots == 0
@@ -145,13 +112,20 @@ restore
 
 preserve
 
-// Keep only one obs per house
-*drop if h_ringvalue == .
-duplicates drop house, force
-sort house
-keep house h_*
-drop h_ringvalue h_value h_totvalue
+// collapse
+duplicates drop house lot date, force
+collapse (mean) target_mean = target_price (sd) target_sd = target_price ///
+	(mean) bid_mean = mnbid (sd) bid_sd = mnbid  ///
+	(mean) ringwin (sum) value ringvalue uniquelots, by(house)
+	
+// adjust percentages
+gen percvalue = ringvalue/value*100
+replace ringwin = ringwin*100
+drop ringvalue value 
 
+// order variables
+local allvars1 target_mean target_sd bid_mean bid_sd ringwin percvalue uniquelots
+order house `allvars1'
 
 // Write to Latex
 global Nval = _N
@@ -164,10 +138,14 @@ file write texfile "\cmidrule(lr){2-3}\cmidrule(lr){4-5}" _n
 file write texfile "Auction House & Mean & SD & Mean & SD & \% Lots won by Ring & \% Value Won & Total Lots \\ \midrule" _n
 forval idx = 1/$Nval{
 	local writer "`:di house[`idx']'"
-	foreach var of varlist h_*{
-		local varval = trim("`: di %10.3g `var'[`idx']'")
+	foreach var of varlist target_mean target_sd bid_mean bid_sd{
+		local varval = trim("`: di %10.2f `var'[`idx']'")
 		local writer "`writer' & `varval'"
 		}
+	foreach var of varlist ringwin percvalue uniquelots{
+	local varval = trim("`: di %10.2g `var'[`idx']'")
+		local writer "`writer' & `varval'"
+	}
 	file write texfile "`writer' \\" _n 
 	}
 file write texfile "\bottomrule" _n
@@ -182,11 +160,17 @@ restore
 
 preserve
 
-// Keep only one obs per house
-drop if b_percwin == .
-duplicates drop nbidders, force
-sort nbidders
-keep nbidders b_*
+// collapse
+duplicates drop house lot date, force
+collapse (mean) target_mean = target_price (sd) target_sd = target_price ///
+	(mean) bid_mean = medbid (sd) bid_sd = medbid  ///
+	(mean) ringwin (sum) uniquelots, by(nbidders)
+	
+// order variables
+replace ringwin = ringwin*100
+local allvars2 target_mean target_sd bid_mean bid_sd ringwin uniquelots
+order nbidders `allvars2'
+
 
 // Write to Latex
 global Nval = _N
@@ -199,8 +183,12 @@ file write texfile "\cmidrule(lr){2-3}\cmidrule(lr){4-5}" _n
 file write texfile "\# Bidders & Mean & SD & Mean & SD & \% Lots won by Ring & Total Lots \\ \midrule" _n
 forval idx = 1/$Nval{
 	local writer "`:di nbidders[`idx']'"
-	foreach var of varlist b_*{
-		local varval = trim("`: di %10.3g `var'[`idx']'")
+	foreach var of varlist target_mean target_sd bid_mean bid_sd{
+		local varval = trim("`: di %10.2f `var'[`idx']'")
+		local writer "`writer' & `varval'"
+		}
+	foreach var of varlist ringwin uniquelots{
+		local varval = trim("`: di %10.2g `var'[`idx']'")
 		local writer "`writer' & `varval'"
 		}
 	file write texfile "`writer' \\" _n 
@@ -217,13 +205,18 @@ restore
 
 preserve
 
-// Keep only one obs per house
-drop if uniquelots == .
-duplicates drop bidder, force
-sort bidder
-keep bidder m_* m2_*
-drop m_wins m2_wins
-order bidder m_percwins m_totlots m2_percwins m2_side m2_pay m2_totlots
+
+// collapse
+*duplicates drop house lot date, force
+collapse (mean) bidder_win (count) auction (mean) bidder_win2  ///
+	(mean) sidepay payside (count) auction2, by(bidder)
+	
+// order variables
+foreach var of varlist bidder_win bidder_win2 sidepay payside{
+	replace `var' = `var'*100
+}
+local allvars5 bidder_win auction bidder_win2 sidepay payside auction2
+order bidder `allvars5'
 
 // Write to Latex
 global Nval = _N
@@ -236,7 +229,7 @@ file write texfile "\cmidrule(lr){2-3}\cmidrule(lr){4-7}" _n
 file write texfile "Ring Member & \% High KO Bid & \# Knockouts & \% High KO Bid & \% Receive Sidepayment & \% Pay Sidepayment & \# Knockouts \\ \midrule" _n
 forval idx = 1/$Nval{
 	local writer "`:di bidder[`idx']'"
-	foreach var of varlist m*{
+	foreach var of varlist `allvars5'{
 		local varval = trim("`: di %10.0f `var'[`idx']'")
 		local writer "`writer' & `varval'"
 		}
@@ -255,7 +248,7 @@ preserve
 gen netpay2 = netpay if target_price < 10000
 label var bidder "Bidder"
 
-graph bar netpayment netpay2, over(bidder) graphregion(color(white)) ///
+graph bar (sum) netpayment netpay2, over(bidder) graphregion(color(white)) ///
 	bar(1, bcolor(cranberry)) bar(2, bcolor(eltblue)) bargap(5) b1title("Bidder") ///
 	ytitle("Net Sidepayment in Dollars") legend(size(small) label(1 "Net Sidepayment") ///
 	label(2 "Net Sidepayment When Target Price < $10,000"))
