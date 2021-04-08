@@ -135,21 +135,26 @@ kable(table1, format="latex", booktabs=TRUE, escape=FALSE) %>%
 #####################################################
 
 # function to do all parts of questions e and f
-output_e <- function(M, Nvals, Pvals, ptilde, rho){
+output_e <- function(M, Nvals, Pvals, ptilde, rho, graph=F){
   samples_e <- lapply(1:4, function(n){drawdata(Nvals[n], Pvals[n], M, vcv="auto", rho=rho)})
+  print("done drawing")
   
   # average and variance of bhat_1
   bhat <- lapply(1:4, function(n){preg_yx(samples_e[[n]], ptilde, M)})
   bmean <- sapply(bhat, mean)
   bse <- sapply(bhat, var)
+  print("done avg")
   
   # lowest eigenvalues
+  # ***** COMBINE INTO 1 LAPPLY
   eigen <- lapply(1:4, function(n){eigenx(samples_e[[n]], ptilde ,M)})
   eigmean <- sapply(eigen, mean)
+  print("done eigen")
   
   # plot averages of the ordered eigenvalues
   eigenplot <- eigenx(samples_e[[4]], ptilde, M, ret="all")
-  
+  print("done eigenplot")
+
   return(list(bmn=bmean, bse=bse, eigmean=eigmean, eigplot=eigenplot))
   
 }
