@@ -16,6 +16,7 @@ library(abind)
 library(doParallel)
 library(gsubfn)
 library(pracma)
+library(mvnfast)
 
 # set working directory (change to run)
 filepath <- "/Users/tanyarajan/Documents/git/y2/spring/metrics/pset1" 
@@ -29,10 +30,9 @@ set.seed(seeder, kind = "L'Ecuyer-CMRG")
 source("code/pset1fns.R")
 
 # setting cores for parallelization
-cor<-floor(detectCores(all.tests=FALSE)*.7)
+cor<-floor(detectCores(all.tests=FALSE)*.4)
 if (is.na(cor) | cor==0){cor <- 1}
 registerDoParallel(cores=cor)
-plan(multisession)
 
 #####################################################
 #                   Data Generation                 #
@@ -51,10 +51,8 @@ drawdata <- function(N, P, M, vcv="ident", rho=NULL){
       }
   
   # drawing x, epsilon, and y
-  looper <- foreach (j= 1:M) %dopar%{
-    mvrnorm(N, mu, sigma)
-  }
-  xep = abind(looper, along=3)
+  out <- lapply(1:M, function(m){rmvn(N, mu, sigma)})
+  xep = abind(out, along=3)
   y = xep[,1,] - xep[,2,] + xep[,P+1,]
   x = xep[,-(P+1),]
   return(list(x=x, y=y))
