@@ -1,11 +1,24 @@
 
-\begin{tabular}{lrrrrrr}
+\begin{tabular}{lrrrr}
 \toprule
-  & $\tilde{p}=1$ & $\tilde{p}=5$ & $\tilde{p}=10$ & $\tilde{p}=50$ & $\tilde{p}=85$ & $\tilde{p}=90$\\
+\multicolumn{1}{c}{ } & \multicolumn{4}{c}{Sample Sizes} \\
+\cmidrule(l{3pt}r{3pt}){2-5}
+  & N=100 & N=200 & N=500 & N=1000\\
 \midrule
-mean($\hat{\beta}$) & 1.0002 & 0.9999 & 1.0000 & 1.0010 & 1.0001 & 0.9977\\
-var($\hat{\beta}$) & 0.0206 & 0.0107 & 0.0113 & 0.0202 & 0.0713 & 0.1079\\
-mean($\frac{1}{N}\sum \hat{X}_{i1}(\tilde{p})^2$) & NA & 0.0406 & 0.0908 & 0.4919 & 0.8429 & 0.8924\\
-mean($\underbar{s}_k$) & NA & 73.9943 & 55.6686 & 10.5089 & 0.9705 & 0.4901\\
+\addlinespace[0.3em]
+\multicolumn{5}{l}{\textbf{$ \rho = 0 $  }}\\
+\hspace{1em}mean($\hat{\beta}$) & 1.0127 & 1.0020 & 0.9994 & 1.0017\\
+\hspace{1em}var($\hat{\beta}$) & 0.1218 & 0.0092 & 0.0026 & 0.0011\\
+\hspace{1em}mean($\underbar{s}_k$) & 0.4965 & 24.2629 & 174.2196 & 505.2107\\
+\addlinespace[0.3em]
+\multicolumn{5}{l}{\textbf{$ \rho = 0.5 $}}\\
+\hspace{1em}mean($\hat{\beta}$) & 1.0096 & 1.0162 & 1.0120 & 1.0097\\
+\hspace{1em}var($\hat{\beta}$) & 0.1092 & 0.0094 & 0.0025 & 0.0011\\
+\hspace{1em}mean($\underbar{s}_k$) & 0.2489 & 12.2110 & 87.4950 & 253.4183\\
+\addlinespace[0.3em]
+\multicolumn{5}{l}{\textbf{$ \rho = 0.9 $}}\\
+\hspace{1em}mean($\hat{\beta}$) & 1.0050 & 1.0131 & 1.0121 & 1.0108\\
+\hspace{1em}var($\hat{\beta}$) & 0.1157 & 0.0089 & 0.0025 & 0.0011\\
+\hspace{1em}mean($\underbar{s}_k$) & 0.0499 & 2.4438 & 17.4929 & 50.7072\\
 \bottomrule
 \end{tabular}
