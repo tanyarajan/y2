@@ -3,6 +3,11 @@
 #                     Tanya Rajan
 # Description: This code runs OLS with varying
 # numbers of covariates across Monte Carlo samples
+# drawn using the DGP described in the problem set.
+#
+# Note: This code requires a lot of vector memory 
+# to run, so I had to set R_MAX_VSIZE=100Gb in the 
+# .Renviron file in terminal for the code to work
 #####################################################
 
 # setup
@@ -42,20 +47,24 @@ drawdata <- function(N, P, M, vcv="ident", rho=NULL){
   # mean 
   mu = rep(0, P+1)
   
-  # different variance matrix (either identity or autocovarying)
+  # different variance matrix (either identity or w/ rho covariance)
   if (vcv == "ident"){sigma=eye(P+1)}
-  else{
-    sigma1 = eye(P+1)*(rho - 1)
-    sigma2 = matrix(rho, nrow=P+1, ncol=P+1)
+  else if (vcv== "auto"){
+    sigma1 = eye(P)*(rho - 1)
+    sigma2 = matrix(rho, nrow=P, ncol=P)
     sigma = sigma2 - sigma1
+    sigma = cbind(sigma, rep(0, P))
+    sigma = rbind(sigma, rep(0, P+1))
+    sigma[P+1, P+1] = 1
       }
   
   # drawing x, epsilon, and y
+  set.seed(seeder)
   out <- lapply(1:M, function(m){rmvn(N, mu, sigma)})
   xep = abind(out, along=3)
   y = xep[,1,] - xep[,2,] + xep[,P+1,]
   x = xep[,-(P+1),]
-  return(list(x=x, y=y))
+  return(list(x=x, y=y, ep=xep[,(P+1),]))
 }
 
 
@@ -74,7 +83,7 @@ preg_yx <- function(data,p,M){
 # Calculating xhat_1 
 preg_xx <- function(data,p,M){
   looper <- foreach (j=1:M) %dopar% {
-    mean((data$x[,2:p,j]%*%reg(data$x[,1,j], data$x[,2:p,j], const="none")$b)^2)
+    mean((data$x[,2:p,j]%*%reg(data$x[,1,j], data$x[,2:p,j], const="none")$b[1])^2)
   }
   return(unlist(looper))
 }
@@ -138,14 +147,13 @@ output_e <- function(M, Nvals, Pvals, ptilde, rho, graph=F){
   print("done drawing")
   
   # average and variance of bhat_1
-  bhat <- lapply(1:4, function(n){preg_yx(samples_e[[n]], ptilde, M)})
+  bhat <- lapply(samples_e, function(n){preg_yx(n, ptilde, M)})
   bmean <- sapply(bhat, mean)
   bse <- sapply(bhat, var)
   print("done avg")
   
   # lowest eigenvalues
-  # ***** COMBINE INTO 1 LAPPLY
-  eigen <- lapply(1:4, function(n){eigenx(samples_e[[n]], ptilde ,M)})
+  eigen <- lapply(samples_e, function(n){eigenx(n, ptilde ,M)})
   eigmean <- sapply(eigen, mean)
   print("done eigen")
   
@@ -192,6 +200,7 @@ tableout <- function(M, Nvals, Pvals, ext){
   rownames(table) <- rep(c("mean($\\hat{\\beta}$)", "var($\\hat{\\beta}$)", 
                             "mean($\\underbar{s}_k$)"), 3)
   table <- round(table, 4)
+  print(table)
   
   # Write to Latex
   kable(table, format="latex", booktabs=T, escape=FALSE) %>%
@@ -213,9 +222,10 @@ tableout <- function(M, Nvals, Pvals, ext){
 }
 
 # Creating tables and graphs for parts e-g
-tableout(setM2, Nlist, pvals1, 1)
-tableout(setM2, Nlist, pvals2, 2)
-tableout(setM2, Nlist, pvals3, 3)
+tableout(100, Nlist, pvals1, 1)
+tableout(100, Nlist, pvals2, 2)
+tableout(100, Nlist, pvals3, 3)
+
 
 
 
