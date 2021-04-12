@@ -35,7 +35,7 @@ set.seed(seeder, kind = "L'Ecuyer-CMRG")
 source("code/pset1fns.R")
 
 # setting cores for parallelization
-cor<-floor(detectCores(all.tests=FALSE)*.5)
+cor<-floor(detectCores(all.tests=FALSE)*.4)
 if (is.na(cor) | cor==0){cor <- 1}
 registerDoParallel(cores=cor)
 
@@ -56,7 +56,7 @@ drawdata <- function(N, P, M, vcv="ident", rho=NULL){
     sigma = cbind(sigma, rep(0, P))
     sigma = rbind(sigma, rep(0, P+1))
     sigma[P+1, P+1] = 1
-      }
+  }
   
   # drawing x, epsilon, and y
   set.seed(seeder)
@@ -83,22 +83,21 @@ preg_yx <- function(data,p,M){
 # Calculating xhat_1 
 preg_xx <- function(data,p,M){
   looper <- foreach (j=1:M) %dopar% {
-    mean((data$x[,2:p,j]%*%reg(data$x[,1,j], data$x[,2:p,j], const="none")$b)^2)
+    mean((data$x[,2:p,j]%*%reg(data$x[,1,j], data$x[,2:p,j], const="none")$b[1])^2)
   }
   return(unlist(looper))
 }
 
 # Calculating eigenvalues of X'X
-eigenx <- function(data, p, M, ret="min", type="reg"){
-  if (type == "fwl"){start = 2}
-  else {start = 1}
+eigenx <- function(data, p, M, ret="min"){
   looper <- foreach (j = 1:M) %dopar% {
-    return(sort(eigen(t(data$x[,start:p,j])%*%data$x[,start:p,j], only.values=T)$values))
+    return(sort(eigen(t(data$x[,2:p,j])%*%data$x[,2:p,j], only.values=T)$values))
   }
   loopres <- abind(looper, along=2)
   if (ret=="min"){return(mean(loopres[1,]))}
   else{return(rowMeans(loopres))}
 }
+
 #####################################################
 #                Questions b - d                    #
 #####################################################
@@ -107,35 +106,35 @@ setP <- 90
 setN <- 100
 plist <- c(1,5,10,50,85,90)
 
-# Drawing the sample for part b-e
-sample1 <- drawdata(setN, setP, setM)
-
-# Calculating means and variances for part c
-bhats1 <- lapply(plist, function(p){preg_yx(sample1, p, setM)})
-bmean1 <- sapply(bhats1, mean)
-bse1 <- sapply(bhats1, var)
-
-# Calculating means and variances for part d
+# # Drawing the sample for part b-e
+# sample1 <- drawdata(setN, setP, setM)
+# 
+# # Calculating means and variances for part c
+# bhats1 <- lapply(plist, function(p){preg_yx(sample1, p, setM)})
+# bmean1 <- sapply(bhats1, mean)
+# bse1 <- sapply(bhats1, var)
+# 
+# # Calculating means and variances for part d
 plist <- c(5,10,50,85,90)
-xhats1 <- lapply(plist, function(p){preg_xx(sample1, p, setM)})
-xmeans1 <- sapply(xhats1, mean)
-
-# Calculating eigenvalues for part d
-eigens1 <- lapply(plist, function(p){eigenx(sample1, p, setM, "min", "fwl")})
-eigmean1 <- sapply(eigens1, mean)
-
-# Table 1
-table1 <- rbind(bmean1, bse1, c(NA, xmeans1), c(NA, eigmean1))
-rownames(table1) <- c("mean($\\hat{\\beta}$)", "var($\\hat{\\beta}$)", 
-                      "mean($\\frac{1}{N}\\sum \\hat{X}_{i1}(\\tilde{p})^2$)",
-                      "mean($\\underbar{s}_k$)")
-colnames(table1) <- c("$\\tilde{p}=1$", "$\\tilde{p}=5$", "$\\tilde{p}=10$",
-                      "$\\tilde{p}=50$", "$\\tilde{p}=85$", "$\\tilde{p}=90$")
-table1 <- round(table1, 4)
-
-# Write to Latex
-kable(table1, format="latex", booktabs=TRUE, escape=FALSE) %>%
-  write(file="tables/pset1_table0.tex")
+# xhats1 <- lapply(plist, function(p){preg_xx(sample1, p, setM)})
+# xmeans1 <- sapply(xhats1, mean)
+# 
+# # Calculating eigenvalues for part d
+# eigens1 <- lapply(plist, function(p){eigenx(sample1, p, setM)})
+# eigmean1 <- sapply(eigens1, mean)
+# 
+# # Table 1
+# table1 <- rbind(bmean1, bse1, c(NA, xmeans1), c(NA, eigmean1))
+# rownames(table1) <- c("mean($\\hat{\\beta}$)", "var($\\hat{\\beta}$)", 
+#                       "mean($\\frac{1}{N}\\sum \\hat{X}_{i1}(\\tilde{p})^2$)",
+#                       "mean($\\underbar{s}_k$)")
+# colnames(table1) <- c("$\\tilde{p}=1$", "$\\tilde{p}=5$", "$\\tilde{p}=10$",
+#                       "$\\tilde{p}=50$", "$\\tilde{p}=85$", "$\\tilde{p}=90$")
+# table1 <- round(table1, 4)
+# 
+# # Write to Latex
+# kable(table1, format="latex", booktabs=TRUE, escape=FALSE) %>%
+#   write(file="tables/pset1_table0.tex")
 
 
 #####################################################
@@ -143,34 +142,26 @@ kable(table1, format="latex", booktabs=TRUE, escape=FALSE) %>%
 #####################################################
 
 # function to do all parts of questions e and f
-output_e <- function(M, Nvals, Pvals, ptilde, rho, graph=T){
+output_e <- function(M, Nvals, Pvals, ptilde, rho, graph=F){
   samples_e <- lapply(1:4, function(n){drawdata(Nvals[n], Pvals[n], M, vcv="auto", rho=rho)})
   print("done drawing")
   
   # average and variance of bhat_1
-  bhat <- lapply(1:4, function(n){preg_yx(samples_e[[n]], ptilde, M)})
+  bhat <- lapply(1:4, function(n){preg_yx(samples_e[[n]], Pvals[[n]], M)})
   bmean <- sapply(bhat, mean)
   bse <- sapply(bhat, var)
   print("done avg")
   
   # lowest eigenvalues
-  eigen <- lapply(1:4, function(n){eigenx(samples_e[[n]], ptilde, M)})
+  eigen <- lapply(1:4, function(n){eigenx(samples_e[[n]], Pvals[[n]] ,M)})
   eigmean <- sapply(eigen, mean)
-  eigen2 <- lapply(1:4, function(n){eigenx(samples_e[[n]], Pvals[[n]], M)})
-  eigmean2 <- sapply(eigen2, mean)
   print("done eigen")
   
   # plot averages of the ordered eigenvalues
-  if (graph == T){
-    eigenplot <- eigenx(samples_e[[4]], Pvals[[4]], M, ret="all")
-    print("done eigenplot")
-    return(list(bmn=bmean, bse=bse, eigmean=eigmean, eigmean2=eigmean2, 
-                eigplot=eigenplot, samp=samples_e))
-  }
-  else{
-    return(list(bmn=bmean, bse=bse, eigmean=eigmean, eigmean2=eigmean2, 
-              samp=samples_e))
-  }
+  eigenplot <- eigenx(samples_e[[4]], Pvals[[4]], M, ret="all")
+  print("done eigenplot")
+  
+  return(list(bmn=bmean, bse=bse, eigmean=eigmean, eigplot=eigenplot))
   
 }
 
@@ -188,54 +179,49 @@ pvals3 <- sapply(Nlist, pdep2)
 
 
 # Calculating tables and figures
-tableout <- function(M, Nvals, Pvals, ext, graph=T){
+tableout <- function(M, Nvals, Pvals, ext){
   # filename
   tabsave = paste0("tables/pset1_table", ext, ".tex")
   figsave = paste0("figures/pset1_graph", ext, ".png")
   
   # going through different rhos
-  out_rho0 <- output_e(M, Nvals, Pvals, 90, 0, graph=graph)
+  out_rho0 <- output_e(M, Nvals, Pvals, 90, 0)
   print("generated1")
-  out_rho5 <- output_e(M, Nvals, Pvals, 90, .5, graph=graph)
+  out_rho5 <- output_e(M, Nvals, Pvals, 90, .5)
   print("generated2")
-  out_rho9 <- output_e(M, Nvals, Pvals, 90, .9, graph=graph)
+  out_rho9 <- output_e(M, Nvals, Pvals, 90, .9)
   print("generated3")
   
   # creating table
-  table <- rbind(out_rho0$bmn, out_rho0$bse, out_rho0$eigmean, out_rho0$eigmean2,
-                  out_rho5$bmn, out_rho5$bse, out_rho5$eigmean, out_rho5$eigmean2,
-                  out_rho9$bmn, out_rho9$bse, out_rho9$eigmean, out_rho9$eigmean2)
+  table <- rbind(out_rho0$bmn, out_rho0$bse, out_rho0$eigmean,
+                 out_rho5$bmn, out_rho5$bse, out_rho5$eigmean,
+                 out_rho9$bmn, out_rho9$bse, out_rho9$eigmean)
   colnames(table) <- c("N=100", "N=200", "N=500", "N=1000")
-  rownames(table) <- rep(c("mean($\\hat{\\beta}$)", 
-                           "var($\\hat{\\beta}$)", 
-                            "mean($\\underbar{s}_k(\\tilde{p})$)", 
-                            "mean($\\underbar{s}_k(p)$)"), 3)
+  rownames(table) <- rep(c("mean($\\hat{\\beta}$)", "var($\\hat{\\beta}$)", 
+                           "mean($\\underbar{s}_k$)"), 3)
   table <- round(table, 4)
   print(table)
   
   # Write to Latex
   kable(table, format="latex", booktabs=T, escape=FALSE) %>%
     add_header_above(c(" "=1, "Sample Sizes" = 4)) %>%
-    pack_rows("$ \\rho = 0 $  ", 1, 4, escape=F) %>%
-    pack_rows("$ \\rho = 0.5 $", 5, 8, escape=F) %>%
-    pack_rows("$ \\rho = 0.9 $", 9, 12, escape=F) %>% 
+    pack_rows("$ \\rho = 0 $  ", 1, 3, escape=F) %>%
+    pack_rows("$ \\rho = 0.5 $", 4, 6, escape=F) %>%
+    pack_rows("$ \\rho = 0.9 $", 7, 9, escape=F) %>% 
     write(file=tabsave)
   
   # Graph
-  if (graph == T){
-    eigendata <- as.data.table(cbind(seq(1:length(out_rho0$eigplot))[-1], 
-                                     rev(out_rho0$eigplot)[-1], 
-                                     rev(out_rho5$eigplot)[-1], 
-                                     rev(out_rho9$eigplot)[-1]))
-    names(eigendata) <- c("idx", "rho = 0", "rho = 0.5", "rho = 0.9")
-    eigenlong <- melt(eigendata, id=c("idx"))
-    g2<-ggplot(data=eigenlong, aes(x=idx, y=value, colour=variable)) + geom_line() + theme_bw()
-    ggsave(g2, width = 7, height = 5, file = figsave)
-  }
+  eigendata <- as.data.table(cbind(seq(1:length(out_rho0$eigplot))[-1], 
+                                   rev(out_rho0$eigplot)[-1], 
+                                   rev(out_rho5$eigplot)[-1], 
+                                   rev(out_rho9$eigplot)[-1]))
+  names(eigendata) <- c("idx", "rho = 0", "rho = 0.5", "rho = 0.9")
+  eigenlong <- melt(eigendata, id=c("idx"))
+  g2<-ggplot(data=eigenlong, aes(x=idx, y=value, colour=variable)) + geom_line() + theme_bw()
+  ggsave(g2, width = 7, height = 5, file = figsave)
 }
 
 # Creating tables and graphs for parts e-g
-tableout(1000, Nlist, pvals1, 1)
-tableout(1000, Nlist, pvals2, 2, graph=F)
-tableout(100, Nlist, pvals3, 3, graph=F)
-
+tableout(1000, Nlist, pvals1, 11)
+tableout(1000, Nlist, pvals2, 22)
+tableout(100, Nlist, pvals3, 33)
