@@ -54,13 +54,7 @@ df <- as.data.table(read.csv(file = "data/va_collapseclean.csv"))
 selcols = c("A_l1", "A_l2", "A_l3", "A_l4", "A_l5", "A_l6")
 selection_idx = !is.na(df[,..selcols])
 
-# all possible values of gamma (for all lags)
-covs <- list()
-for (i in 1:length(selcols)){
-  covs[i] <- var(df$A, callit("df$A_l", i), na.rm=T)
-}
-G2 <- unlist(covs)
-
+# get weighted covariates from Stata output
 G <- unlist(read.csv(file = "data/wt_cov.csv"))
 
 # creating components of Sigma common across all teachers
