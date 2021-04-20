@@ -51,15 +51,17 @@ var_class <- s_A - s_ep
 df <- as.data.table(read.csv(file = "data/va_collapseclean.csv"))
 
 # create selection matrix based on how many available lags
-selcols = c("A", "A_l1", "A_l2", "A_l3", "A_l4", "A_l5", "A_l6")
+selcols = c("A_l1", "A_l2", "A_l3", "A_l4", "A_l5", "A_l6")
 selection_idx = !is.na(df[,..selcols])
 
 # all possible values of gamma (for all lags)
-G <- list()
+covs <- list()
 for (i in 1:length(selcols)){
   covs[i] <- var(df$A, callit("df$A_l", i), na.rm=T)
 }
-G <- unlist(covs)
+G2 <- unlist(covs)
+
+G <- unlist(read.csv(file = "data/wt_cov.csv"))
 
 # creating components of Sigma common across all teachers
 Sig_init = var(df[,..selcols], na.rm = T)
@@ -89,8 +91,11 @@ tva <- function(idx){
 
 # calculating tva ests for all teacher-years
 tva_ests <- sapply(rep(1:dim(df)[1]), tva)
-df$tva_ests <- tva_ests
 
 # normalizing and plotting
-tva_ests <- (tva_ests - mean(tva_ests))/sd(tva_ests)
-plot(density(tva_ests, bw=2))
+tva_ests <- (tva_ests - mean(tva_ests))
+df$tva_ests <- tva_ests
+plot(density(tva_ests, bw=.1, weights=df$ns/sum(df$ns)))
+
+
+

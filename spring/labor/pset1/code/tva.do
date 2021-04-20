@@ -160,3 +160,16 @@ matrix friendly */
 save data/va_collpaseclean, replace
 outsheet using data/va_collapseclean.csv, comma nolab replace
 			
+// saving weighted correlation values
+drop _all
+set obs 6
+*gen name = ""
+gen cov = .
+local counter = 1
+foreach gmac in s_A1 s_A2 s_A3 s_A4 s_A5 s_A6{
+	*replace name = "`gmac'" in `counter'
+	replace cov = ${`gmac'} in `counter'
+	local counter = `counter' + 1
+}
+
+outsheet using data/wt_cov.csv, comma nolab replace
