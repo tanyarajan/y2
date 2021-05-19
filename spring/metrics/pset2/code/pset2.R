@@ -156,7 +156,6 @@ ridge <- function(data, lambda){
 setM <- 10000
 setP <- 90
 setN <- 100
-setL <- 20 
 
 # drawing the sample
 sample1 <- drawdata(setN, setP, setM)
@@ -242,15 +241,16 @@ cross.validation <- function(data, lambda_seq, tau, h){
   # sample splitting
   maxt <- length(data$y)
   cnt <- 1
-  yend <- 1
+  ymax <- 1
   out <- matrix(0, ncol=length(lambda_seq))
-  while (yend < maxt){
+  while (ymax < maxt){
     # testing and training data
     train.dta <- cbind(data$y[(cnt + h) : (cnt + t1 - 1 + h)], data$x[cnt:(cnt + t1 - 1),])
-    ymax <- cnt + t1 + t2 -1 + h
-    if (ymax > maxt){ymax <- maxt}
-    test.x <- data$x[(cnt + t1) : (ymax-h),]
-    test.y <- data$y[(cnt + t1 + h) : ymax]
+    yend <- cnt + t1 + t2 -1 + h
+    if (yend > maxt){yend <- maxt}
+    test.x <- data$x[(cnt + t1) : (yend-h),]
+    test.y <- data$y[(cnt + t1 + h) : yend]
+    #print(cbind(test.y, test.x))
     
     # looping through each lambda
     lres <- foreach(l = 1:length(lambda_seq)) %dopar% {
@@ -262,18 +262,16 @@ cross.validation <- function(data, lambda_seq, tau, h){
     
     # return MSFE
     out <- rbind(out, lres)
-    cnt <- cnt + 10
+    cnt <- cnt + t2
+    ymax <- yend
     
-    yend <- ymax
   }
   
-  #return(colMeans(out[-1,]))
-  return(colMeans(out))
+  return(colMeans(out[-1,]))
+  #return(colMeans(out))
 }
 
-hi<-cross.validation(data.2b, c(.2,.3), setTau, 1)
-print(dim(hi))
-
+cross.validation(data.2b,c(.1,.2),c(100,10),1)
 
 #####################################################
 #                 Question 2 Answers                #
@@ -299,7 +297,7 @@ sig.2d <- kronecker(eye(5), sig.tilde)
 data.2d <- dynamic.dgp(b.2b, setR, sig.2d, setT)
   
 # cross validation
-lam20 <- (seq(0:20))/4
+lam20 <- (seq(0:20))
 res.2b <- cross.validation(data.2b, lam20, setTau, 1)
 res.2c <- cross.validation(data.2c, lam20, setTau, 1)
 res.2d <- cross.validation(data.2d, lam20, setTau, 1)
@@ -322,8 +320,16 @@ ggsave("figures/pset2_msfe.png")
 
 
 # results at the minimizing MSFE in full sample
-lasso(b_initial=rep(0,50), data=data.2b, lambda=lam20[which.min(res.2b)])
-lasso(b_initial=rep(0,50), data=data.2c, lambda=lam20[which.min(res.2c)])
-lasso(b_initial=rep(0,50), data=data.2d, lambda=lam20[which.min(res.2d)])
+
+# part b
+lasso(b_initial=rep(0,50), data=cbind(data.2b$y, data.2b$x), lambda=.75)$estimate
+
+# part c
+lasso(b_initial=rep(0,50), data=cbind(data.2c$y, data.2c$x), lambda=.25)$estimate
+
+# part d
+lasso(b_initial=rep(0,50), data=cbind(data.2d$y, data.2d$x), lambda=3)$estimate
+
+
 
 
