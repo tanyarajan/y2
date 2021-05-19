@@ -26,7 +26,7 @@ setwd(filepath)
 seeder = 123
 
 # read in code file defining functions
-#source("code/pset3fns.R")
+source("code/pset3fns.R")
 
 # setting cores for parallelization
 cor<-floor(detectCores(all.tests=FALSE)*.4)
@@ -259,12 +259,8 @@ df <- cbind(y,x)
 df2 <- cbind(y2, x)
 
 
-# ols and tree on full data
-mse.ols<-mean((y - predict.lm(lm(y ~ x - 1)))^2)
-options(warn = -1)
-mse.tree<-mean((y-tree.predict(df, tree(df)))^2)
-
-
+# ols  full data
+mse.ols<-lm(y2 ~ x - 1)
 
 #####################################################
 #                   10-Fold CV                      #
@@ -280,29 +276,41 @@ dt2[,group:=sample.int(10, setN, replace=T)]
 
 # testing and training function
 test.train <- function(data, g, min.size.for.split=10, max.depth=10){
-  train <- as.matrix(copy(dt[group != g,][,group:=NULL]))
-  #print(train)
-  test <- as.matrix(copy(dt[group == g][,group:=NULL]))
+  # test and train data
+  train <- as.matrix(copy(data[group != g,][,group:=NULL]))
+  test <- as.matrix(copy(data[group == g][,group:=NULL]))
+  
+  # train the tree
   train.tree <- tree(train, min.size.for.split, max.depth)
-  train.ols <- lm(train[,1] ~ train[,2] + train[,3]  - 1)
+  train.ols <- reg(train[,1], train[,-1], const="none")$b
+
+  # predict
   test.pred.tree <- tree.predict(test, train.tree)
-  test.pred.ols <- predict.lm(train.ols)
-  mse.tree <- mean((y-test.pred.tree)^2)
-  mse.ols <- mean((y-test.pred.ols)^2)
+  test.pred.ols <- test[,-1]%*%train.ols
+  mse.tree <- (test[,1]-test.pred.tree)^2
+  mse.ols <- (test[,1]-test.pred.ols)^2
   print(paste0("done with ", g))
-  return(list(mse.tree=mse.tree, mse.ols=mse.ols))
+  return(list(mse.tree=mse.tree, mse.ols=as.vector(mse.ols)))
 }
 
+yo <- lapply(seq(1:2), function(x){test.train(dt2,x)})
+
+
 # answers to part e
-xval.e<-lapply(seq(1:10), function(x){test.train(dt,x)})
-xval.e.out <- unlist(xval.e)
-xval.e.ols <- mean(xval.e.out[names(xval.e.out) == "mse.ols"])
-xval.e.tree <- mean(xval.e.out[names(xval.e.out) == "mse.tree"])
+cv.e<-lapply(seq(1:10), function(x){test.train(dt,x)})
+cv.e.out <- unlist(cv.e)
+cv.e.ols <- mean(cv.e.out[grepl("mse.ols", names(cv.e.out))])
+cv.e.tree <- mean(cv.e.out[grepl("mse.tree",names(cv.e.out))])
 
 
 # answers to part f
-xval.f<-lapply(seq(1:10), function(x){test.train(dt2,x)})
-xval.f.out <- unlist(xval.f)
-xval.f.ols <- mean(xval.f.out[names(xval.f.out) == "mse.ols"])
-xval.f.tree <- mean(xval.f.out[names(xval.f.out) == "mse.tree"])
+cv.f<-lapply(seq(1:10), function(x){test.train(dt2,x)})
+cv.f.out <- unlist(cv.f)
+cv.f.ols <- mean(cv.f.out[grepl("mse.ols", names(cv.f.out))])
+cv.f.tree <- mean(cv.f.out[grepl("mse.tree", names(cv.f.out))])
+
+
+print(paste0("DGP 1, OLS: ", round(cv.e.ols, 3), "Tree: ", round(cv.e.tree,3)))
+print(paste0("DGP 2, OLS: ", round(cv.f.ols, 3), "Tree: ", round(cv.f.tree,3)))
+
 
